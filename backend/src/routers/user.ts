@@ -26,7 +26,7 @@ const DEFAULT_TITLE = "Select the most clickable thumbnail";
 const s3Client = new S3Client({
   credentials: {
     accessKeyId: ACCESS_KEY_ID,
-    secretAccessKey: ACCESS_SECRET,
+    secretAccessKey:ACCESS_SECRET,
   },
   region: REGION,
 });
@@ -247,26 +247,29 @@ router.post("/task", authMiddleware, async (req, res) => {
   });
 });
 
-router.get("/presignedUrl", authMiddleware, async (req, res) => {
-  // @ts-ignore
-  const userId = req.userId;
-
+// TEMPORARY: Remove authMiddleware for testing
+router.get("/presignedUrl", async (req, res) => {
   try {
+    const key = `fiver/${Date.now()}.jpg`;
     const { url, fields } = await createPresignedPost(s3Client, {
       Bucket: BUCKET_NAME,
-      Key: `fiver/${userId}/${Math.random()}/image.jpg`,
+      Key: key,
+      Fields: { acl: "public-read",
+      },
       Conditions: [
-        ["content-length-range", 0, 5 * 1024 * 1024], // 5 MB max
+        ["content-length-range", 0, 5 * 1024 * 1024],
+        { acl: "public-read" },
       ],
       Expires: 3600,
     });
 
-    return res.json({
+    res.json({
       preSignedUrl: url,
-      fields,
+      fields: { ...fields, key }, // key is required separately for frontend use
     });
   } catch (error) {
-    return res.status(500).json({ message: (error as Error).message });
+    console.error(error);
+    res.status(500).json({ message: "Upload failed" });
   }
 });
 
@@ -348,6 +351,10 @@ router.post("/signin", async (req, res) => {
       description: (error as Error).message,
     });
   }
+});
+
+router.get("/", (req, res) => {
+  res.send("User API is working!");
 });
 
 export default router;

@@ -1,7 +1,7 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-export const JWT_SECRET = process.env.JWT_SECRET ?? "kirat123";
+export const JWT_SECRET = process.env.JWT_SECRET ?? "shreyas123";
 export const WORKER_JWT_SECRET = JWT_SECRET + "worker";
 
 export const TOTAL_DECIMALS = 1000_000;
@@ -37,7 +37,7 @@ export const RPC_URL = process.env.RPC_URL ?? "https://api.devnet.solana.com";
 
 export const PARENT_WALLET_PUBLIC_KEY = process.env.PARENT_WALLET_PUBLIC_KEY;
 
-export const REGION = process.env.REGION ?? "us-east-1";
-export const ACCESS_KEY_ID = process.env.ACCESS_KEY_ID ?? "";
-export const ACCESS_SECRET = process.env.ACCESS_SECRET ?? "";
-export const BUCKET_NAME = process.env.BUCKET_NAME ?? "";
+export const REGION = process.env.REGION ?? "eu-north-1";
+export const ACCESS_KEY_ID = process.env.ACCESS_KEY_ID ?? "AKIAWQUOZJUTTD6PF75D";
+export const ACCESS_SECRET = process.env.ACCESS_SECRET ?? "h81mnUC40AolM7uoKW0afcrr06T3ItcggA2S";
+export const BUCKET_NAME = process.env.BUCKET_NAME ?? "decentralized-fiver-solana";

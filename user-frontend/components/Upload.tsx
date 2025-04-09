@@ -9,6 +9,12 @@ import { useConnection } from "@solana/wallet-adapter-react";
 import { toast } from "sonner";
 import { WalletAdapterProps } from "@solana/wallet-adapter-base";
 
+interface TaskSubmission {
+  options: { imageUrl: string }[];
+  title: string;
+  signature: string;
+}
+
 export const Upload = ({
   publicKey,
   sendTransaction,
@@ -17,160 +23,177 @@ export const Upload = ({
   sendTransaction: WalletAdapterProps["sendTransaction"];
 }) => {
   const [images, setImages] = useState<string[]>([]);
-  const [title, setTitle] = useState<string | null>(null);
+  const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(false);
-  const [sig, setSig] = useState<string | null>(null);
+  const [signature, setSignature] = useState<string | null>(null);
   const { connection } = useConnection();
   const router = useRouter();
 
-  async function handleSubmit() {
-    if (!sig) {
-      console.log("Signature not found");
+  const handleSubmit = async () => {
+    if (!signature) {
+      toast.error("Signature not found");
       return;
     }
+    if (!title.trim()) {
+      toast.error("Please enter a task title");
+      return;
+    }
+    if (images.length < 2) {
+      toast.error("Please upload at least 2 images");
+      return;
+    }
+
     setLoading(true);
-    const tl = toast.loading("Submiting task to workers");
+    const toastId = toast.loading("Submitting task to workers");
+
     try {
-      const response = await axios.post(
-        `${BACKEND_URL}/v1/user/task`,
-        {
-          options: images.map((image) => ({
-            imageUrl: image,
-          })),
-          title,
-          signature: sig,
-        },
-        {
-          headers: {
-            Authorization: localStorage.getItem("token"),
-          },
+      const token = localStorage.getItem("token");
+      if (!token) {
+        throw new Error("Authentication required. Please login.");
+      }
+
+      const payload: TaskSubmission = {
+        options: images.map(imageUrl => ({ imageUrl })),
+        title,
+        signature
+      };
+
+      const response = await axios.post(`${BACKEND_URL}/v1/user/task`, payload, {
+        headers: {
+          Authorization: token,
+          "Content-Type": "application/json"
         }
-      );
-      toast.dismiss(tl);
-      toast.success("Successfully submitted the task", {
+      });
+
+      toast.success("Task submitted successfully", {
         description: `TASK ID: ${response.data.id}`,
+        id: toastId
       });
       router.push(`/task/${response.data.id}`);
     } catch (error) {
-      toast.dismiss(tl);
-      toast.error((error as Error).message);
-      console.log(error);
+      const errorMessage = axios.isAxiosError(error)
+        ? error.response?.data?.message || error.message
+        : error instanceof Error
+        ? error.message
+        : "Submission failed";
+      
+      toast.error(errorMessage, { id: toastId });
+      console.error("Submission error:", error);
+    } finally {
+      setLoading(false);
     }
+  };
 
-    setLoading(false);
-  }
-  async function makePayment() {
+  const makePayment = async () => {
     if (!publicKey || !sendTransaction) {
+      toast.error("Wallet not connected");
+      return;
+    }
+    if (!NEXT_PUBLIC_PARENT_WALLET_ADDRESS) {
+      toast.error("Parent wallet address not configured");
+      return;
+    }
+    if (!title.trim()) {
+      toast.error("Please enter a task title");
+      return;
+    }
+    if (images.length < 2) {
+      toast.error("Please upload at least 2 images");
       return;
     }
 
     setLoading(true);
-    let tl;
+    const toastId = toast.loading("Processing payment...");
+
     try {
-      if (!NEXT_PUBLIC_PARENT_WALLET_ADDRESS) {
-        throw new Error("Set parent wallet address");
-      }
-      if (!title) {
-        throw new Error("Add Title");
-      }
-      if (images.length < 2) {
-        throw new Error("Upload Minimum Two Images");
-      }
-      tl = toast.loading("Making Payement...");
       const transaction = new Transaction().add(
         SystemProgram.transfer({
           fromPubkey: publicKey,
           toPubkey: new PublicKey(NEXT_PUBLIC_PARENT_WALLET_ADDRESS),
-          lamports: 100000000,
+          lamports: 100000000, // 0.1 SOL
         })
       );
-      const signature = await sendTransaction(transaction, connection, {
+
+      const txSignature = await sendTransaction(transaction, connection, {
         preflightCommitment: "confirmed",
         skipPreflight: false,
       });
-      toast.dismiss(tl);
+
       toast.success("Payment successful", {
-        description: `Signature: ${signature}`,
+        description: `Transaction: ${txSignature}`,
+        id: toastId
       });
-      setSig(signature);
+      setSignature(txSignature);
     } catch (error) {
-      toast.dismiss(tl);
-      toast.error((error as Error).message);
-      console.log(error);
+      const errorMessage = error instanceof Error ? error.message : "Payment failed";
+      toast.error(errorMessage, { id: toastId });
+      console.error("Payment error:", error);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-  }
+  };
+
+  const handleImageAdded = (imageUrl: string) => {
+    setImages(prev => [...prev, imageUrl]);
+  };
 
   return (
     <div className="flex justify-center">
       <div className="max-w-screen-lg w-full">
-        <div className="text-2xl text-left pt-20 w-full pl-4">
-          Create a task
-        </div>
+        <h1 className="text-2xl text-left pt-20 w-full pl-4">Create a task</h1>
 
-        <label className="pl-4 block mt-2 text-md font-medium text-gray-900 text-black">
-          Task details
-        </label>
-
-        <input
-          onChange={(e) => {
-            setTitle(e.target.value);
-          }}
-          type="text"
-          id="first_name"
-          className="ml-4 mt-1 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
-          placeholder="What is your task?"
-          required
-        />
-
-        <label className="pl-4 block mt-8 text-md font-medium text-gray-900 text-black">
-          Add Images
-        </label>
-        <div className="flex justify-center pt-4 max-w-screen-lg">
-          {images.map((image, index) => (
-            <UploadImage
-              image={image}
-              key={index}
-              onImageAdded={(imageUrl) => {
-                setImages((i) => [...i, imageUrl]);
-              }}
-            />
-          ))}
-        </div>
-
-        <div className="ml-4 pt-2 flex justify-center">
-          <UploadImage
-            onImageAdded={(imageUrl) => {
-              setImages((i) => [...i, imageUrl]);
-            }}
+        <div className="mt-8 pl-4">
+          <label className="block text-md font-medium text-gray-900 mb-1">
+            Task details
+          </label>
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="mt-1 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
+            placeholder="What is your task?"
+            required
           />
         </div>
 
-        <div className="flex justify-center">
+        <div className="mt-8 pl-4">
+          <label className="block text-md font-medium text-gray-900 mb-1">
+            Add Images (Minimum 2)
+          </label>
+          <div className="flex flex-wrap gap-4 pt-2">
+            {images.map((image, index) => (
+              <UploadImage
+                key={index}
+                image={image}
+                onImageAdded={handleImageAdded}
+              />
+            ))}
+            <UploadImage onImageAdded={handleImageAdded} />
+          </div>
+        </div>
+
+        <div className="flex justify-center mt-8">
           {loading ? (
             <button
-              disabled={true}
-              type="button"
-              className="mt-4 text-white bg-gray-800 hover:bg-gray-900 focus:outline-none focus:ring-4 focus:ring-gray-300 font-medium rounded-full text-sm px-5 py-2.5 me-2 mb-2 dark:bg-gray-800 dark:hover:bg-gray-700 dark:focus:ring-gray-700 dark:border-gray-700"
+              disabled
+              className="mt-4 text-white bg-gray-500 font-medium rounded-full text-sm px-5 py-2.5"
             >
-              {"Loading..."}
+              Processing...
             </button>
-          ) : sig ? (
+          ) : signature ? (
             <button
               onClick={handleSubmit}
-              type="button"
               disabled={loading}
-              className="mt-4 text-white bg-gray-800 hover:bg-gray-900 focus:outline-none focus:ring-4 focus:ring-gray-300 font-medium rounded-full text-sm px-5 py-2.5 me-2 mb-2 dark:bg-gray-800 dark:hover:bg-gray-700 dark:focus:ring-gray-700 dark:border-gray-700"
+              className="mt-4 text-white bg-gray-800 hover:bg-gray-700 font-medium rounded-full text-sm px-5 py-2.5"
             >
-              {loading ? "Sumbiting..." : "Submit Task"}
+              Submit Task
             </button>
           ) : (
             <button
               onClick={makePayment}
-              type="button"
-              className="mt-4 text-white bg-gray-800 hover:bg-gray-900 focus:outline-none focus:ring-4 focus:ring-gray-300 font-medium rounded-full text-sm px-5 py-2.5 me-2 mb-2 dark:bg-gray-800 dark:hover:bg-gray-700 dark:focus:ring-gray-700 dark:border-gray-700"
+              className="mt-4 text-white bg-gray-800 hover:bg-gray-700 font-medium rounded-full text-sm px-5 py-2.5"
             >
-              {"Submit Task for 0.1 sol"}
+              Pay 0.1 SOL to Submit Task
             </button>
           )}
         </div>

@@ -10,18 +10,20 @@
   },
   "dependencies": {
     "@solana/wallet-adapter-base": "^0.9.23",
-    "@solana/wallet-adapter-react": "^0.15.35",
+    "@solana/wallet-adapter-react": "^0.15.36",
     "@solana/wallet-adapter-react-ui": "^0.9.35",
     "@solana/wallet-adapter-wallets": "^0.19.32",
-    "@solana/web3.js": "^1.91.8",
-    "axios": "^1.6.8",
+    "@solana/web3.js": "^1.98.0",
+    "@types/uuid": "^10.0.0",
+    "axios": "^1.8.4",
     "dotenv": "^16.4.5",
     "next": "14.2.3",
     "next-themes": "^0.3.0",
     "react": "^18",
     "react-dom": "^18",
-    "sonner": "^1.4.41",
-    "sooner": "^1.1.4"
+    "sonner": "^1.7.4",
+    "sooner": "^1.1.4",
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "@types/node": "^20",

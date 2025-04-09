@@ -268,4 +268,8 @@ router.post("/signin", async (req, res) => {
   }
 });
 
+router.get("/", (req, res) => {
+  res.send("Worker API is working!");
+});
+
 export default router;
